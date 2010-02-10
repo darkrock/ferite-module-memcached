@@ -1,0 +1,134 @@
+uses "serialize";
+uses "memcached.lib";
+
+module-header {
+	#include <libmemcached/memcached.h>
+}
+
+/**
+ * @namespace memcached
+ * @brief A set of services that provide access memcached
+ */
+namespace memached {
+	/**
+	 * @class Cache
+	 * @brief A wrapper around a memcached cache handle.
+	 */
+	class Cache {
+		
+		native constructor {
+			FE_RETURN_NULL_OBJECT;
+		}
+		native constructor( string host ) {
+			self->odata = memcached_create( NULL );
+			memcached_server_add( self->odata, host->data, MEMCACHED_DEFAULT_PORT );
+		}
+		native constructor( string host, number port ) {
+			self->odata = memcached_create( NULL );
+			memcached_server_add( self->odata, host->data, port );
+		}
+		native destructor {
+			if( self->odata ) {
+				memcached_quit( self->odata );
+			}
+		}
+		
+		native function set( string key, string value ) {
+			memcached_set( self->odata, key->data, key->length, value->data, value->length, 0, 0 );
+		}
+		native function set( string key, string value, number expire ) {
+			memcached_set( self->odata, key->data, key->length, value->data, value->length, expire, 0 );
+		}
+		
+		native function get( string key ) {
+			size_t length = 0;
+			uint32_t flags = 0;
+			memcached_return return_value;
+			char *value = NULL, *_value = memcached_get( self->odata, key->data, key->length, &length, &flags, &return_value );
+			
+			if( return_value != MEMCACHED_SUCCESS ) {
+				value = fstrdup("");
+			} else {
+				value = fmalloc(length + 1);
+				memcpy( value, _value, length );
+				value[length] = '\0';
+			}
+			
+			FE_RETURN_CSTR( value, FE_TRUE );
+		}
+		native function delete( string key ) {
+			memcached_delete( self->odata, key->data, key->length, 0 );
+		}
+	}
+	/**
+	 * @end
+	 */
+	
+	/**
+	 * @variable default_cache
+	 * @type     object
+	 * @brief    A memcached.Cache object that serves as a default cache.
+	 */
+	object default_cache;
+	
+	/**
+	 * @function get
+	 * @declaration function get( string key )
+	 * @brief Get a given key from the memcached.default_cache object
+	 * @param string key The key to get from the default_cache
+	 * @return The string if it exists, empty if the key doesn't. An exception is thrown if the default cache isn't setup.
+	 */
+	function get( string key ) {
+		if( .default_cache ) {
+			return .default_cache.get(key);
+		}
+		raise new Error("No default cache provided for get($key)");
+	}
+	/**
+	 * @function set
+	 * @declaration function set( string key, string value )
+	 * @brief Set a given key-value pair in the memcached.default_cache object
+	 * @param string key The key to set at the default_cache
+	 * @param string value The string value to set on the server.
+	 */
+	function set( string key, string value ) {
+		if( .default_cache ) {
+			return .default_cache.set(key, value);
+		}
+		raise new Error("No default cache provided for set($key)");
+	}
+	/**
+	 * @function sget
+	 * @declaration function sget( string key )
+	 * @brief Get a given key from the memcached.default_cache object and decode it using Serialize.fromNative
+	 * @param string key The key to get from the default_cache
+	 * @return The value if it exists. An exception is thrown if the default cache isn't setup or the value can't be deserialized.
+	 */
+	function sget( string key ) {
+		if( .default_cache ) {
+			string result = .default_cache.get(key);
+			if( result ) {
+				return Serialize.fromNative(result);
+			}
+			raise new Errnr("Empty string can't be deserialised.");
+		}
+		raise new Error("No default cache provided for sget($key)");
+	}
+	/**
+	 * @function sset
+	 * @declaration function sset( string key, void value )
+	 * @brief Set a given key-value pair in the memcached.default_cache object, the value will be serialized.
+	 * @param string key The key to set at the default_cache
+	 * @param string value The value to set on the server after being serialized.
+	 */
+	function sset( string key, void value ) {
+		if( .default_cache ) {
+			return .default_cache.set(key, Serialize.toNative(value));
+		}
+		raise new Error("No default cache provided for sset($key)");
+	}
+	
+}
+/** @end */
+
+memcached.default_cache = new memcached.Cache('localhost');
