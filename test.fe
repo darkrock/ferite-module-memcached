@@ -1,0 +1,27 @@
+uses "console";
+uses "memcached";
+uses "date";
+
+array avalue = memcached.serializeGet("too_much_magic", []);
+string value = memcached.get('magic');
+
+if( not value ) {
+	value = Date.date(Date.GMTnow()).toString();
+	memcached.set('magic', value);
+	Console.println("Value doesn't exist - setting $value");
+} else {
+	Console.println("Value exists: $value");
+}
+
+Console.println("avalue = " + avalue);
+if( not avalue ) {
+	avalue = [ 
+		'hi' => 'there',
+		'from' => 42,
+		'people' => 'who',
+		'think' => true,
+		'thoughts'
+	];
+	
+	memcached.serializeSet("too_much_magic", avalue);
+}
