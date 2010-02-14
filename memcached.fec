@@ -1,22 +1,24 @@
 uses "serialize";
 uses "memcached.lib";
+uses "regexp";
 
 module-header {
 	#include <libmemcached/memcached.h>
+	#include "utility.h"
 }
 
 /**
  * @namespace memcached
  * @brief A set of services that provide access memcached
  */
-namespace memached {
+namespace memcached {
 	/**
 	 * @class Cache
 	 * @brief A wrapper around a memcached cache handle.
 	 */
 	class Cache {
 		
-		native constructor {
+		native constructor() {
 			FE_RETURN_NULL_OBJECT;
 		}
 		native constructor( string host ) {
@@ -27,7 +29,7 @@ namespace memached {
 			self->odata = memcached_create( NULL );
 			memcached_server_add( self->odata, host->data, port );
 		}
-		native destructor {
+		native destructor() {
 			if( self->odata ) {
 				memcached_quit( self->odata );
 			}
@@ -40,7 +42,7 @@ namespace memached {
 			memcached_set( self->odata, key->data, key->length, value->data, value->length, expire, 0 );
 		}
 		
-		native function get( string key ) {
+		native function _get( string key ) {
 			size_t length = 0;
 			uint32_t flags = 0;
 			memcached_return return_value;
@@ -56,8 +58,55 @@ namespace memached {
 			
 			FE_RETURN_CSTR( value, FE_TRUE );
 		}
+		function get( string key ) {
+			return ._get(key);
+		}
+		function get( string key, string defaultValue ) {
+			string value = ._get(key);
+			if( not value ) {
+				return defaultValue;
+			}
+			return value;
+		}
 		native function delete( string key ) {
 			memcached_delete( self->odata, key->data, key->length, 0 );
+		}
+		native function _locate( object block ) {
+			FeriteMemcached _context;
+			FeriteMemcached *context = &_context;
+			memcached_dump_fn callbacks[1];
+			memcached_return_t rc;
+			
+			callbacks[0] = &memcached_key_process;
+
+			context->script = script;
+			context->block = block;
+			
+			rc = memcached_dump(memc, callbacks, NULL, 1);
+			if( rc != MEMCACHED_SUCCESS ) {
+				FE_RETURN_FALSE;
+			}
+			FE_RETURN_TRUE;
+		}
+		function locate( string match ) {
+			object block, deliver_block = recipient();
+			object regexp = new Regexp(match);
+			array list = [];
+
+			block = closure( key ) {
+				if( regexp.match(key) ) {
+					if( deliver_block ) {
+						deliver_block.invoke(key);
+					} else {
+						list[] = key;
+					} 
+				}
+			};
+
+			if( not ._locate(block) ) {
+				raise new Error("Unable to locate keys with value");
+			}
+			return list;
 		}
 	}
 	/**
@@ -79,8 +128,11 @@ namespace memached {
 	 * @return The string if it exists, empty if the key doesn't. An exception is thrown if the default cache isn't setup.
 	 */
 	function get( string key ) {
+		return .get( key, '' );
+	}
+	function get( string key, string defaultValue ) {
 		if( .default_cache ) {
-			return .default_cache.get(key);
+			return .default_cache.get(key, defaultValue);
 		}
 		raise new Error("No default cache provided for get($key)");
 	}
@@ -98,32 +150,40 @@ namespace memached {
 		raise new Error("No default cache provided for set($key)");
 	}
 	/**
-	 * @function sget
-	 * @declaration function sget( string key )
+	 * @function serializeGet
+	 * @declaration function serializeGet( string key, void default_value )
 	 * @brief Get a given key from the memcached.default_cache object and decode it using Serialize.fromNative
 	 * @param string key The key to get from the default_cache
+	 * @param void default_value The default value to use if it doesn't exist
 	 * @return The value if it exists. An exception is thrown if the default cache isn't setup or the value can't be deserialized.
 	 */
-	function sget( string key ) {
+	function serializeGet( string key, void default_value ) {
 		if( .default_cache ) {
 			string result = .default_cache.get(key);
 			if( result ) {
 				return Serialize.fromNative(result);
+			} else {
+				return default_value;
 			}
-			raise new Errnr("Empty string can't be deserialised.");
 		}
 		raise new Error("No default cache provided for sget($key)");
 	}
 	/**
-	 * @function sset
-	 * @declaration function sset( string key, void value )
+	 * @function serializeSet
+	 * @declaration function serializeSet( string key, void value )
 	 * @brief Set a given key-value pair in the memcached.default_cache object, the value will be serialized.
 	 * @param string key The key to set at the default_cache
 	 * @param string value The value to set on the server after being serialized.
 	 */
-	function sset( string key, void value ) {
+	function serializeSet( string key, void value ) {
 		if( .default_cache ) {
 			return .default_cache.set(key, Serialize.toNative(value));
+		}
+		raise new Error("No default cache provided for sset($key)");
+	}
+	function serializeSet( string key, void value, number expire ) {
+		if( .default_cache ) {
+			return .default_cache.set(key, Serialize.toNative(value), expire);
 		}
 		raise new Error("No default cache provided for sset($key)");
 	}
