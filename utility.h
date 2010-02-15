@@ -6,4 +6,4 @@ typedef struct __ferite_memcached {
 	FeriteObject *block;
 } FeriteMemcached;
 
-static memcached_return_t memcached_key_process( memcached_st *ptr, const char *key, size_t key_length, void *context );
+static memcached_return_t ferite_memcached_key_process( memcached_st *ptr, const char *key, size_t key_length, void *context );

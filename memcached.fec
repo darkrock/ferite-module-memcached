@@ -77,12 +77,12 @@ namespace memcached {
 			memcached_dump_fn callbacks[1];
 			memcached_return_t rc;
 			
-			callbacks[0] = &memcached_key_process;
+			callbacks[0] = &ferite_memcached_key_process;
 
 			context->script = script;
 			context->block = block;
 			
-			rc = memcached_dump(memc, callbacks, NULL, 1);
+			rc = memcached_dump(self->odata, callbacks, NULL, 1);
 			if( rc != MEMCACHED_SUCCESS ) {
 				FE_RETURN_FALSE;
 			}
@@ -164,6 +164,17 @@ namespace memcached {
 				return Serialize.fromNative(result);
 			} else {
 				return default_value;
+			}
+		}
+		raise new Error("No default cache provided for sget($key)");
+	}
+	function serializeGet( string key ) {
+		if( .default_cache ) {
+			string result = .default_cache.get(key);
+			if( result ) {
+				return Serialize.fromNative(result);
+			} else {
+				raise new Error("Unable to find key $key");
 			}
 		}
 		raise new Error("No default cache provided for sget($key)");

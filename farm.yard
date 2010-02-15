@@ -20,6 +20,8 @@
         
         <list type="source">
 			<file name="memcached.fec" />
+			<file name="utility.h" />
+			<file name="utility.c" />
         </list>
     </module>
         
