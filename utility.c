@@ -2,7 +2,7 @@
 #include <libmemcached/memcached.h>
 #include "utility.h"
 
-static memcached_return_t ferite_memcached_key_process( memcached_st *ptr, const char *key, size_t key_length, void *_context ) {
+memcached_return_t ferite_memcached_key_process( memcached_st *ptr, const char *key, size_t key_length, void *_context ) {
 	FeriteMemcached *context = (FeriteMemcached*)_context;
 	FeriteScript *script = context->script;
 	FeriteObject *block = context->block;
