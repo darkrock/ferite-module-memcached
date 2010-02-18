@@ -25,3 +25,8 @@ if( not avalue ) {
 	
 	memcached.serializeSet("too_much_magic", avalue);
 }
+
+
+memcached.locate('^file:') using ( key ) {
+	Console.println("key: $key");
+};

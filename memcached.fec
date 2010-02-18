@@ -82,7 +82,7 @@ namespace memcached {
 			context->script = script;
 			context->block = block;
 			
-			rc = memcached_dump(self->odata, callbacks, NULL, 1);
+			rc = memcached_dump(self->odata, callbacks, context, 1);
 			if( rc != MEMCACHED_SUCCESS ) {
 				FE_RETURN_FALSE;
 			}
@@ -166,7 +166,7 @@ namespace memcached {
 				return default_value;
 			}
 		}
-		raise new Error("No default cache provided for sget($key)");
+		raise new Error("No default cache provided for serializeGet($key)");
 	}
 	function serializeGet( string key ) {
 		if( .default_cache ) {
@@ -177,7 +177,7 @@ namespace memcached {
 				raise new Error("Unable to find key $key");
 			}
 		}
-		raise new Error("No default cache provided for sget($key)");
+		raise new Error("No default cache provided for serializeGet($key)");
 	}
 	/**
 	 * @function serializeSet
@@ -190,15 +190,20 @@ namespace memcached {
 		if( .default_cache ) {
 			return .default_cache.set(key, Serialize.toNative(value));
 		}
-		raise new Error("No default cache provided for sset($key)");
+		raise new Error("No default cache provided for serializeSet($key)");
 	}
 	function serializeSet( string key, void value, number expire ) {
 		if( .default_cache ) {
 			return .default_cache.set(key, Serialize.toNative(value), expire);
 		}
-		raise new Error("No default cache provided for sset($key)");
+		raise new Error("No default cache provided for serializeSet($key)");
 	}
-	
+	function locate( string match ) {
+		if( .default_cache ) {
+			return .default_cache.locate(match) using recipient();
+		}
+		raise new Error("No default cache provided for locate($key)");
+	}
 }
 /** @end */
 
