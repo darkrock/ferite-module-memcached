@@ -46,10 +46,12 @@ namespace memcached {
 			size_t length = 0;
 			uint32_t flags = 0;
 			memcached_return return_value;
-			char *value = NULL, *_value = memcached_get( self->odata, key->data, key->length, &length, &flags, &return_value );
+			char *value = NULL;
+			char *_value = memcached_get( self->odata, key->data, key->length, &length, &flags, &return_value );
 			
 			if( return_value != MEMCACHED_SUCCESS ) {
 				value = fstrdup("");
+				ferite_error(script, 1, "Failed to execute get(%s): %s\n", key->data, memcached_strerror(self->odata, return_value));
 			} else {
 				value = fmalloc(length + 1);
 				memcpy( value, _value, length );
@@ -62,11 +64,11 @@ namespace memcached {
 			return ._get(key);
 		}
 		function get( string key, string defaultValue ) {
-			string value = ._get(key);
-			if( not value ) {
+			monitor {
+				return ._get(key);
+			} handle {
 				return defaultValue;
 			}
-			return value;
 		}
 		native function delete( string key ) {
 			memcached_delete( self->odata, key->data, key->length, 0 );
@@ -159,10 +161,9 @@ namespace memcached {
 	 */
 	function serializeGet( string key, void default_value ) {
 		if( .default_cache ) {
-			string result = .default_cache.get(key);
-			if( result ) {
-				return Serialize.fromNative(result);
-			} else {
+			monitor {
+				return Serialize.fromNative(.default_cache.get(key));
+			} handle {
 				return default_value;
 			}
 		}
@@ -170,12 +171,7 @@ namespace memcached {
 	}
 	function serializeGet( string key ) {
 		if( .default_cache ) {
-			string result = .default_cache.get(key);
-			if( result ) {
-				return Serialize.fromNative(result);
-			} else {
-				raise new Error("Unable to find key $key");
-			}
+			return Serialize.fromNative(.default_cache.get(key));
 		}
 		raise new Error("No default cache provided for serializeGet($key)");
 	}
