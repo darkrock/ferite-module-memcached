@@ -86,6 +86,7 @@ namespace memcached {
 			
 			rc = memcached_dump(self->odata, callbacks, context, 1);
 			if( rc != MEMCACHED_SUCCESS ) {
+				ferite_error(script, 1, "Failed to execute locate(): %s\n", memcached_strerror(self->odata, rc));
 				FE_RETURN_FALSE;
 			}
 			FE_RETURN_TRUE;

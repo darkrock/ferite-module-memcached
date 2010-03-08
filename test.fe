@@ -1,6 +1,7 @@
 uses "console";
 uses "memcached";
 uses "date";
+uses "webframework/webframework";
 
 array avalue = memcached.serializeGet("too_much_magic", []);
 string value = memcached.get('magic');
@@ -27,6 +28,6 @@ if( not avalue ) {
 }
 
 
-memcached.locate('^file:') using ( key ) {
+memcached.locate('^.*') using ( key ) {
 	Console.println("key: $key");
 };
